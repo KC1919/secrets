@@ -4,19 +4,30 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const app = express();
 const ejs = require("ejs");
-const mongoose=require("mongoose");
-const md5=require("md5");
+const mongoose = require("mongoose");
+const md5 = require("md5");
+const bcrypt = require("bcrypt");
+const saltRound = 10;
 
-mongoose.connect("mongodb://localhost:27017/userDB",{useNewUrlParser:true, useUnifiedtopology:true});
-
-const Schema=mongoose.Schema;
-
-const userSchema=new Schema({
-  email:{type:String,required:true},
-  password:{type:String,required:true}
+mongoose.connect("mongodb://localhost:27017/userDB", {
+  useNewUrlParser: true,
+  useUnifiedtopology: true
 });
 
-const User=mongoose.model("User",userSchema);
+const Schema = mongoose.Schema;
+
+const userSchema = new Schema({
+  email: {
+    type: String,
+    required: true
+  },
+  password: {
+    type: String,
+    required: true
+  }
+});
+
+const User = mongoose.model("User", userSchema);
 
 app.use(express.static("public"));
 app.set('view engine', 'ejs');
@@ -25,57 +36,58 @@ app.use(bodyParser.urlencoded({
 }));
 
 
-app.get("/",(req,res)=>{
+app.get("/", (req, res) => {
   res.render("home");
 })
 
-app.get("/login",(req,res)=>{
+app.get("/login", (req, res) => {
   res.render("login");
 })
 
-app.get("/register",(req,res)=>{
+app.get("/register", (req, res) => {
   res.render("register");
 })
 
-app.post("/register",(req,res)=>{
-  let email=req.body.username;
-  let password=md5(req.body.password);
+app.post("/register", (req, res) => {
+  let email = req.body.username;
+  let password = req.body.password;
 
-  const user=new User({
-    email:email,
-    password:password
+  bcrypt.hash(password, saltRound, function(err, hash) {
+    const user = new User({
+      email: email,
+      password: hash
+    });
+    user.save((err) => {
+      if (err)
+        console.log(err);
+      else
+        res.redirect("/login");
+    });
   });
-  user.save();
-
-  res.redirect("/login")
 });
 
-app.post("/login",(req,res)=>{
+app.post("/login", (req, res) => {
 
-  let username=req.body.username;
-  let password=md5(req.body.password);
+  let username = req.body.username;
+  let password = req.body.password;
 
-  User.findOne({email:username},function(err,foundUser){
+  User.findOne({
+    email: username
+  }, function(err, foundUser) {
 
-    if(!foundUser)
-    {
+    if (!foundUser) {
       res.redirect("/register");
-    }
-    else{
-      if(foundUser.password===password)
-      {
-        res.render("secrets");
-      }
-      else{
-        res.send("Incorrect Password");
-      }
+    } else {
+      bcrypt.compare(password, foundUser.password, function(err, result) {
+        if (result===true) {
+          res.render("secrets");
+        } else {
+          res.send("Incorrect Password");
+        }
+      });
     }
   });
 });
-
-
-
-
 
 
 
